@@ -1,0 +1,37 @@
+name: package-validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run independent lifecycle, process and consumer checks
+        run: python -S tests/run_checks.py all "$RUNNER_TEMP/harness-checks"
+      - name: Build wheel
+        run: python -m pip wheel --no-deps --wheel-dir "$RUNNER_TEMP/harness-dist" .
+      - name: Verify installed package entry points
+        run: |
+          python -m pip install --no-deps "$RUNNER_TEMP"/harness-dist/*.whl
+          cd "$RUNNER_TEMP"
+          python -I -m scenario_harness --help
+          scenario-harness --help
+      - name: Upload check evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-checks
+          path: ${{ runner.temp }}/harness-checks
+          if-no-files-found: warn
