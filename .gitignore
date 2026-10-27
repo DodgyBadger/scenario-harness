@@ -7,3 +7,12 @@ __pycache__/
 .ruff_cache/
 build/
 dist/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.yaml
+secrets.yml
+credentials.json
