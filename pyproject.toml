@@ -4,13 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scenario-harness"
-version = "0.1.0"
-description = "Project-configured scenarios with isolated execution and evidence"
+version = "0.2.0"
+description = "Pytest scenario evidence and structured observations"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = ["pytest>=9.0.3,<10", "pytest-xdist>=3.8,<4"]
 
-[project.scripts]
-scenario-harness = "scenario_harness.cli:main"
+[project.entry-points.pytest11]
+scenario_harness = "scenario_harness.plugin"
+
+[project.optional-dependencies]
+test = ["pytest-asyncio>=1.3,<2"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/scenario_harness"]
