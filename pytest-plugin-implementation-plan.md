@@ -29,6 +29,12 @@ A final fresh Sol trial used the readability revision at 7c9ec19 with an indepen
 
 This edits the review draft only. Skill installation/publication, protected product documentation and framework/application behavior remain outside this revision. No full-suite run is needed for the prose change.
 
+## Post-migration-batch red-flag review: pause
+
+The user paused AssistantMD migration for an independent fundamental review. Pytest/xdist plus small evidence utilities remain the endorsed architecture, but the current observation recorder has a confirmed release blocker: capture stores redacted values and select redacts expectations, so distinct registered secrets compare equal. An installed-wheel contains/require reproduction accepted an incorrect expected token. Matching must preserve original distinctions and sanitize export copies separately; do not publish or treat this behavior as acceptable.
+
+AssistantMD integration also projects records before actual app activity/validation/Logfire emission, concealing potential registered-secret logging regressions even after a generic matcher fix. Failed app shutdown can clear the global runtime sentinel while later services are still unconfirmed, so reused-worker isolation needs an explicit failure policy. These are correctness/evidence blockers rather than style opportunities or reasons to rebuild a standalone runner. No source fixes were made during the review. Evidence and locations: AssistantMD/validation/runs/pytest_migration/architecture_review/assessment.md; tracked blockers in AssistantMD/validation/registry/pytest-gaps.json.
+
 ## Purpose
 
 Help developers and agents validate application behavior through real application instances, stable observable outcomes and inspectable evidence, using pytest as the execution system. Reduce repeated integration and reporting work while keeping application behavior and policy in the consuming project.
