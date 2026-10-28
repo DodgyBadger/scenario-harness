@@ -44,7 +44,7 @@ class RunEvidence:
         if nodeid not in self.items:
             label = re.sub(r"[^A-Za-z0-9_-]", "_", nodeid.split("::")[-1])
             digest = hashlib.sha256(nodeid.encode()).hexdigest()[:10]
-            item = Evidence(self.root / f"{label}-{digest}")
+            item = Evidence(self.root / f"{label[:80]}-{digest}")
             item.artifacts.mkdir(parents=True, exist_ok=True)
             self.items[nodeid] = item
         return self.items[nodeid]

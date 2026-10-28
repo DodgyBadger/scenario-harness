@@ -320,3 +320,14 @@ def test_after(scenario_run): pass
 
     assert (Path(case["evidence_path"]) / "artifacts/startup.json").is_file()
     assert case["fatal_stack_path"] is None
+
+
+def test_long_parameter_ids_keep_artifact_paths_bounded(tmp_path):
+    from scenario_harness.plugin import RunEvidence
+
+    state = RunEvidence(tmp_path)
+    first = state.evidence("test_app.py::test_case[" + "x" * 1000 + "]")
+    second = state.evidence("test_app.py::test_case[" + "x" * 999 + "y]")
+    assert len(first.root.name) <= 91
+    assert first.root != second.root
+    assert first.artifacts.is_dir()
