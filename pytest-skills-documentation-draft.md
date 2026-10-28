@@ -50,7 +50,7 @@ description: Implement or extend pytest scenarios that exercise real application
 
 Inspect the behavior plan, neighboring scenarios and application fixture before writing a new case. Reuse the project's ordinary pytest app fixture and production entry points. Controlled inputs are allowed; mocked application outputs and private collaborator call assertions do not establish the behavior.
 
-For a new behavior, write the smallest acceptance case first. Run it and explain why the observed failure discriminates the missing behavior from unrelated environment faults. Implement the production change and rerun the same case. Keep expected outcomes stable through refactoring. For working behavior under migration, use a real green baseline and label any negative controls honestly.
+For a new behavior, write the smallest acceptance case first. Run it and explain why the observed failure discriminates the missing behavior from unrelated environment faults. Implement the production change and rerun the same case. Retain the acceptance scenario source or digest with the red and green evidence so changes to the oracle are visible. Keep expected outcomes stable through refactoring. For working behavior under migration, use a real green baseline and label any negative controls honestly.
 
 Assert actual output or persisted state and relevant application-emitted events through scenario_run.observations. Match semantic names and minimum required fields; tolerate unrelated metadata and additional fields. Use checkpoints and operation identifiers where necessary. Do not assert logger classes, complete event snapshots, timestamps or private call order unless these are explicitly the product contract.
 
@@ -88,7 +88,7 @@ Reproduce the smallest relevant case with isolated state and the same inputs. Ke
 
 Use checkpoints, correlation fields and application outputs to locate the last established state transition. Redact registered values in shared excerpts; raw application files may require separate handling. A process death has no Python exception object: distinguish genuine fatal diagnostics from missing evidence and mark cleanup unconfirmed unless established independently.
 
-After a fault, verify a subsequent real application lifecycle when contamination or worker replacement matters. A deliberate failing probe should still exit nonzero; report recovery verification separately. Summarize the demonstrated cause, reproducer, evidence, fix verification and unresolved limits. Do not promise hard-hang or descendant-process cleanup without tested support.
+Completed pytest teardown establishes that finalizers returned; establish application cleanup separately through resource or lifecycle observations. After a fault, verify a subsequent real application lifecycle when contamination or worker replacement matters. A deliberate failing probe should still exit nonzero; report recovery verification separately. Summarize the demonstrated cause, reproducer, evidence, fix verification and unresolved limits. Do not promise hard-hang or descendant-process cleanup without tested support.
 ```
 
 ## Proposed installation and usage text
