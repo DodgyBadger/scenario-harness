@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -87,9 +88,9 @@ class Observations:
         ):
             raise TypeError("Observation requires a string name and mapping data")
         with self._lock:
-            projected = self.run.redact(record)
-            self.run.append("observations.jsonl", projected)
-            self._records.append(projected)
+            captured = deepcopy(record)
+            self.run.append("observations.jsonl", captured)
+            self._records.append(captured)
 
     def record(
         self, name: str, data: dict | None = None, metadata: dict | None = None
@@ -107,10 +108,10 @@ class Observations:
             raise ValueError("Checkpoint must be nonnegative")
         with self._lock:
             return [
-                json.loads(json.dumps(r))
+                deepcopy(r)
                 for r in self._records[after:]
                 if (name is None or r["name"] == name)
-                and _subset(r.get("data", {}), self.run.redact(fields or {}))
+                and _subset(r.get("data", {}), fields or {})
             ]
 
     def contains(
@@ -132,5 +133,10 @@ class Observations:
                 "matched": bool(matches),
             },
         )
-        assert matches, f"Missing application event {name!r} matching {expected!r}"
+        if not matches:
+            message = (
+                f"Missing application event {self.run.redact(name)!r} "
+                f"matching {self.run.redact(expected)!r}"
+            )
+            raise AssertionError(self.run.redact(message))
         return matches[-1]
