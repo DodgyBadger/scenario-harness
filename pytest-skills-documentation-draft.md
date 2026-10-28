@@ -68,6 +68,12 @@ Changing an input, removing a negative case, broadening accepted results, skippi
 
 Correct a demonstrably mistaken expectation using evidence independent of the failing implementation. Explain the reason, preserve the original failure and identify any reduced scope. Revise intended behavior through the project's contract-review process. If the intended outcome remains unclear, report the discrepancy for a decision and continue independent work without presenting a narrower passing case as resolution.
 
+## Keep the behavior sequence readable
+
+A scenario is maintained code and can be refactored while preserving what it proves. Write it as a clear sequence: establish the relevant state, perform an action, then show the expected outcome. Keep each outcome close to the action that produces it and make significant inputs and expectations visible.
+
+Move setup plumbing, artifact serialization, provenance checks, repetitive diagnostics and routine lifecycle management into fixtures or focused helpers. Use clear behavioral names so the scenario remains understandable without following helper internals. Keep lifecycle or diagnostic actions in the sequence when those actions are themselves the behavior being tested. Extraction should remove distractions without hiding meaningful actions or expectations.
+
 ## Apply the methodology
 
 Read the behavior plan, repository instructions, permitted existing coverage and application fixture. Choose or extend the smallest scenario that protects a meaningful outcome or subsystem boundary. Record the contract, production actions, real fixture/dependency needs, observations and known limits before writing assertions.
@@ -88,6 +94,8 @@ description: Review scenario changes for meaningful behavioral coverage, stable 
 ---
 
 Compare the requested contract, implementation and scenario diff. Determine whether real production entry points produce the asserted outputs, persisted state or observations. Trace internal observations to the application's chosen instrumentation; test-emitted expected records are not proof. Distinguish controlled input fixtures from substituted application outcomes.
+
+Read the scenario as a behavior sequence: can the reader follow the relevant state, actions and expected outcomes without working through setup or diagnostic plumbing? Suggest refactoring distracting mechanics into fixtures or helpers while keeping meaningful inputs and expectations visible.
 
 Check whether the oracle rejects a plausible incorrect behavior. Reject weakened expectations that hide a failure without an explicitly revised behavior contract, even when tests become green. Prefer selected semantic fields over snapshots of metadata, internal classes or collaborator call order. Check correlations, timing assumptions, negative cases and isolation between reused workers.
 
