@@ -40,21 +40,43 @@ Start adoption with a small real outcome plus an internal semantic observation. 
 Set an explicit plugin-owned artifact root, retain reports according to project policy and make CI preserve failure artifacts. Verify the installed distribution from outside its source tree. Prove additional worker safety before increasing concurrency. Do not claim remote-worker, descendant cleanup or hard-hang guarantees without evidence. Python package installation does not install agent skills.
 ```
 
-## Proposed skill: skills/develop-behavioral-scenarios/SKILL.md
+## Proposed skill: skills/test-application-behavior/SKILL.md
 
 ```markdown
 ---
-name: develop-behavioral-scenarios
-description: Implement or extend pytest scenarios that exercise real application behavior and develop a change through meaningful red/green/refactor evidence.
+name: test-application-behavior
+description: Apply scenario-based testing to real application behavior using observable outcomes and stable behavioral contracts. Use when designing, writing or changing application scenarios, including output and validation-sink assertions, while preserving failures that reveal contract discrepancies.
 ---
 
-Inspect the behavior plan, neighboring scenarios and application fixture before writing a new case. Reuse the project's ordinary pytest app fixture and production entry points. Controlled inputs are allowed; mocked application outputs and private collaborator call assertions do not establish the behavior.
+## Testing philosophy
 
-For a new behavior, write the smallest acceptance case first. Run it and explain why the observed failure discriminates the missing behavior from unrelated environment faults. Implement the production change and rerun the same case. Retain the acceptance scenario source or digest with the red and green evidence so changes to the oracle are visible. Keep expected outcomes stable through refactoring. For working behavior under migration, use a real green baseline and label any negative controls honestly.
+A scenario is an executable claim about what the application must do under specified conditions. Define the inputs, actions, expected outcomes and invariants that make the behavior correct. The aim is trustworthy evidence that those claims hold. A passing result has value only while the scenario still rejects the incorrect behavior it was meant to detect.
 
-Assert actual output or persisted state and relevant application-emitted events through scenario_run.observations. Match semantic names and minimum required fields; tolerate unrelated metadata and additional fields. Use checkpoints and operation identifiers where necessary. Do not assert logger classes, complete event snapshots, timestamps or private call order unless these are explicitly the product contract.
+Keep those claims stable when implementation interfaces, collaborators or strategies change. Test through an appropriate production entry point and judge the resulting behavior. Assertions about private object layout, collaborator calls or incidental formatting create maintenance work without necessarily protecting the application outcome.
 
-Retain useful outputs with scenario_run.save_json or write_text, register explicit secrets before use, and keep raw files subject to project policy. Cover meaningful negative cases and cleanup. Run directly relevant deterministic checks during development and broader checks at the repository's designated hardening point. Report actual red/green results, evidence paths and remaining coverage limits.
+Start a real, isolated application instance. Observe actual responses, files, persisted state and other application outputs. Where an important decision cannot be established from external output alone, observe semantic internal state through the application's validation sink. Match selected meaningful fields. These observations form a deliberate behavioral contract; avoid snapshots of implementation objects or complete diagnostic records.
+
+Fixtures supply controlled inputs and real dependencies. They must not manufacture the result under test, publish its expected events or patch a strategy into producing the expected outcome. Declare external-service requirements and coverage limits honestly; a substituted provider result cannot establish that provider's behavior.
+
+Derive expected correctness from requirements, agreed invariants, documented contracts and reviewed decisions. Implementation inspection helps find entry points and explain observations; existing implementation is evidence of current behavior, not the sole authority for what is correct. When only current behavior is known, label the result as characterization and identify unresolved expectations.
+
+## Preserve the contract when a test fails
+
+Treat an unexpected failure as evidence to investigate. Keep the original inputs, actions, assertions and observed outputs available while distinguishing application defects, fixture faults, environmental problems and genuine mistakes in the expectation. Conflicting requirements or invariants remain open contract questions until resolved.
+
+Changing an input, removing a negative case, broadening accepted results, skipping a case or weakening a state assertion can remove the demonstrated failure without fixing its cause. Assess these as changes to what the scenario proves. Do not make them solely to obtain a passing run or because the implementation currently behaves that way.
+
+Correct a demonstrably mistaken expectation using evidence independent of the failing implementation. Explain the reason, preserve the original failure and identify any reduced scope. Revise intended behavior through the project's contract-review process. If the intended outcome remains unclear, report the discrepancy for a decision and continue independent work without presenting a narrower passing case as resolution.
+
+## Apply the methodology
+
+Read the behavior plan, repository instructions, permitted existing coverage and application fixture. Choose or extend the smallest scenario that protects a meaningful outcome or subsystem boundary. Record the contract, production actions, real fixture/dependency needs, observations and known limits before writing assertions.
+
+For new behavior, write the acceptance case first and confirm that its failure demonstrates the missing behavior. Implement the production change and rerun the same case. Preserve the acceptance source or digest with red and green evidence. Refactor while keeping the behavioral contract intact. For existing behavior, establish an honest baseline; investigate unexpected failures under the same rules. Clearly label deliberate wrong-expectation probes and other negative controls.
+
+Use ordinary pytest fixtures and assertions with the project's real app fixture. Retain actual outputs with scenario_run.save_json or write_text. Query application-emitted observations through scenario_run.observations, using checkpoints and correlation fields to associate them with the action under test. Tolerate unrelated metadata and extra fields. Register known secrets before retaining plugin-owned evidence; raw application files require their own policy.
+
+Verify application cleanup through lifecycle or resource observations where it matters. Completed pytest finalizers alone do not establish that every application resource was released. Run relevant focused checks during development and broader profiles at the project's designated hardening point. Report the actual verdicts, retained evidence, expectation changes, unresolved discrepancies and coverage limits. The testing framework and this skill support that judgment; neither certifies correctness automatically.
 ```
 
 ## Proposed skill: skills/review-behavioral-scenarios/SKILL.md
@@ -95,7 +117,7 @@ Completed pytest teardown establishes that finalizers returned; establish applic
 
 The Python package and agent skills are installed separately. Install the tested package revision in your application's test environment; pytest and pytest-xdist are included dependencies. Copy whichever approved `skills/<name>` directories you need into `${CODEX_HOME:-$HOME/.codex}/skills/`. Each installed directory must contain its own SKILL.md. Installation must be an explicit user action; pip must not write agent configuration or skills into a home directory.
 
-Invoke `$plan-behavioral-change` before implementing a behavior change, `$integrate-scenario-testing` when adopting the plugin, `$develop-behavioral-scenarios` while authoring cases, `$review-behavioral-scenarios` for review and `$diagnose-scenario-failures` for investigation. These skills remain automatically discoverable through their descriptions. They respect the consuming repository's instructions and approvals.
+Invoke `$plan-behavioral-change` before implementing a behavior change, `$integrate-scenario-testing` when adopting the plugin, `$test-application-behavior` for the testing philosophy and scenario authoring, `$review-behavioral-scenarios` for review and `$diagnose-scenario-failures` for investigation. These skills remain automatically discoverable through their descriptions. They respect the consuming repository's instructions and approvals.
 
 For editable sibling development, create a dedicated environment and install the sibling checkout with `python -m pip install -e ../scenario-harness`. Keep environments for incompatible published revisions separate. Production CI should install its tested immutable revision rather than rely on a sibling working tree.
 

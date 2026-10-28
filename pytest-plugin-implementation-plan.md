@@ -17,6 +17,14 @@ Remaining work includes timeout/descendant-cleanup evaluation, broader repeated/
 
 Companion application plan: AssistantMD/pytest-scenario-library-refactor-plan.md. The generic package must become independently usable before AssistantMD switches its pinned dependency or removes its current integration.
 
+## Core methodology skill revision: 2026-10-28
+
+Rename the draft authoring skill to test-application-behavior and update its YAML description and adoption reference. Lead with the purpose of scenario-based testing, stable behavior across implementation changes, real application outputs, semantic validation sinks and an independent basis for correctness. Put pytest/plugin mechanics after the methodology.
+
+The blind AssistantMD trial produced a useful real-app scenario but exposed a judgment failure: the author narrowed an input after an unexpected root-protection failure and inferred correctness from the current implementation. The revised draft explicitly preserves the original failing example, treats changed inputs and omitted cases as changes to proof scope, distinguishes characterization from accepted correctness and requires an independent rationale for correcting an expectation. Historical trial inputs and reports remain unchanged. All five extracted draft packages pass skill metadata validation, and the renamed skill's active path, invocation and plan references agree. Behavioral effectiveness of the revised wording remains unproven until a fresh independent trial.
+
+This edits the review draft only. Skill installation/publication, protected product documentation and framework/application behavior remain outside this revision. No full-suite run is needed for the prose change.
+
 ## Purpose
 
 Help developers and agents validate application behavior through real application instances, stable observable outcomes and inspectable evidence, using pytest as the execution system. Reduce repeated integration and reporting work while keeping application behavior and policy in the consuming project.
@@ -93,7 +101,7 @@ Skills ship as focused, discoverable SKILL.md packages with progressive referenc
 |---|---|
 | plan-behavioral-change | Turn a feature/change request into observable contracts, a coverage decision and an implementation plan with meaningful red/green evidence |
 | integrate-scenario-testing | Install/configure the plugin and create real application fixtures, observation bindings and project CI policy |
-| develop-behavioral-scenarios | Implement or extend scenarios and application behavior through production boundaries using the red/green/refactor loop |
+| test-application-behavior | Teach the behavioral testing methodology, stable correctness contracts and failure investigation, then apply it through real-app scenarios and the red/green/refactor loop |
 | review-behavioral-scenarios | Assess semantic coverage, private-interface coupling, mocks, weakened expectations, admission and the quality of evidence |
 | diagnose-scenario-failures | Interpret application failures, fixture errors, worker loss and artifacts; reproduce the smallest relevant case without hiding faults |
 
