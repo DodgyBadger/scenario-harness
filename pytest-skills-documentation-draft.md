@@ -31,9 +31,9 @@ description: Adopt the scenario-harness pytest plugin in a consuming application
 
 Read the installed package's public API reference and the consuming repository's test policy. Keep domain actions, application lifecycle and admission policy in the consumer; do not import another application's validation framework or recreate a separate runner.
 
-Install scenario-harness in the application's isolated test environment. It includes pytest and pytest-xdist. Use the scenario_run fixture for run-owned state and artifacts. An ordinary app fixture depends on scenario_run, starts the actual application, binds its actual observation sink and finalizes the application through pytest. Keep setup failures visible and ensure partial startup can release acquired resources.
+Install scenario-harness in the application's isolated test environment. It includes pytest and pytest-xdist. Use the scenario_run fixture for run-owned state and artifacts. An ordinary app fixture depends on scenario_run, starts the actual application, connects any application-defined observations to the recorder and finalizes the application through pytest. Keep setup failures visible and ensure partial startup can release acquired resources.
 
-Map application events into the name/data/optional-metadata envelope at the sink boundary. Scenarios must observe events emitted by the application, not manufacture expected observations themselves. Assert selected semantic fields, using checkpoints and correlation identifiers to avoid matching unrelated operations. Register known secrets before emitting them to plugin-owned evidence; raw application files need their own policy.
+The application developer chooses how to expose internal state; structured logs are one option. When using the plugin's observation recorder, adapt application-produced observations to its name/data/optional-metadata envelope. Scenarios must not manufacture the observations they expect. Assert selected semantic fields, using checkpoints and correlation identifiers to avoid matching unrelated operations. Register known secrets before emitting them to plugin-owned evidence; raw application files need their own policy.
 
 Start adoption with a small real outcome plus an internal semantic observation. Configure protected mode with explicit local workers, initially `--scenario-mode protected -n 1 --max-worker-restart=1`. Use `--scenario-mode inprocess` for deliberate debugging and recognize its reduced crash protection. Installing the plugin alone must not activate unrelated tests.
 
@@ -45,7 +45,7 @@ Set an explicit plugin-owned artifact root, retain reports according to project 
 ```markdown
 ---
 name: test-application-behavior
-description: Apply scenario-based testing to real application behavior using observable outcomes and stable behavioral contracts. Use when designing, writing or changing application scenarios, including output and validation-sink assertions, while preserving failures that reveal contract discrepancies.
+description: Apply scenario-based testing to real application behavior using observable outcomes and stable behavioral contracts. Use when designing, writing or changing application scenarios, including output and internal-state assertions, while preserving failures that reveal contract discrepancies.
 ---
 
 ## Testing philosophy
@@ -54,7 +54,7 @@ A scenario is an executable claim about what the application must do under speci
 
 Keep those claims stable when implementation interfaces, collaborators or strategies change. Test through an appropriate production entry point and judge the resulting behavior. Assertions about private object layout, collaborator calls or incidental formatting create maintenance work without necessarily protecting the application outcome.
 
-Start a real, isolated application instance. Observe actual responses, files, persisted state and other application outputs. Where an important decision cannot be established from external output alone, observe semantic internal state through the application's validation sink. Match selected meaningful fields. These observations form a deliberate behavioral contract; avoid snapshots of implementation objects or complete diagnostic records.
+Start a real, isolated application instance. Observe actual responses, files, persisted state and other application outputs. Where external output cannot establish an important decision, use meaningful internal observations exposed through a mechanism chosen by the application developer, such as structured logs. Match selected meaningful fields. These observations form a deliberate behavioral contract; avoid snapshots of implementation objects or complete diagnostic records.
 
 Fixtures supply controlled inputs and real dependencies. They must not manufacture the result under test, publish its expected events or patch a strategy into producing the expected outcome. Declare external-service requirements and coverage limits honestly; a substituted provider result cannot establish that provider's behavior.
 
@@ -87,7 +87,7 @@ name: review-behavioral-scenarios
 description: Review scenario changes for meaningful behavioral coverage, stable semantic assertions and trustworthy execution evidence.
 ---
 
-Compare the requested contract, implementation and scenario diff. Determine whether real production entry points produce the asserted outputs, persisted state or observations. Trace event publication to the application sink; test-emitted expected events are not proof. Distinguish controlled input fixtures from substituted application outcomes.
+Compare the requested contract, implementation and scenario diff. Determine whether real production entry points produce the asserted outputs, persisted state or observations. Trace internal observations to the application's chosen instrumentation; test-emitted expected records are not proof. Distinguish controlled input fixtures from substituted application outcomes.
 
 Check whether the oracle rejects a plausible incorrect behavior. Reject weakened expectations that hide a failure without an explicitly revised behavior contract, even when tests become green. Prefer selected semantic fields over snapshots of metadata, internal classes or collaborator call order. Check correlations, timing assumptions, negative cases and isolation between reused workers.
 

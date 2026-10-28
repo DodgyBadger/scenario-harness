@@ -19,7 +19,7 @@ Companion application plan: AssistantMD/pytest-scenario-library-refactor-plan.md
 
 ## Core methodology skill revision: 2026-10-28
 
-Rename the draft authoring skill to test-application-behavior and update its YAML description and adoption reference. Lead with the purpose of scenario-based testing, stable behavior across implementation changes, real application outputs, semantic validation sinks and an independent basis for correctness. Put pytest/plugin mechanics after the methodology.
+Rename the draft authoring skill to test-application-behavior and update its YAML description and adoption reference. Lead with the purpose of scenario-based testing, stable behavior across implementation changes, real application outputs, semantic internal observations and an independent basis for correctness. The application developer chooses how to expose internal state, for example through structured logs; the plugin supplies observation recording/querying, not application instrumentation. Put pytest/plugin mechanics after the methodology.
 
 The blind AssistantMD trial produced a useful real-app scenario but exposed a judgment failure: the author narrowed an input after an unexpected root-protection failure and inferred correctness from the current implementation. The revised draft explicitly preserves the original failing example, treats changed inputs and omitted cases as changes to proof scope, distinguishes characterization from accepted correctness and requires an independent rationale for correcting an expectation. Historical trial inputs and reports remain unchanged. All five extracted draft packages pass skill metadata validation, and the renamed skill's active path, invocation and plan references agree. Behavioral effectiveness of the revised wording remains unproven until a fresh independent trial.
 
@@ -49,7 +49,7 @@ These experiments establish feasibility for the tested local configuration. They
 | Pytest | Collection, execution, assertion reporting, fixture finalization, ordinary capture, standard exit codes and JUnit integration |
 | Pytest-xdist | Worker processes, scheduling, crash detection and bounded worker replacement |
 | Generic plugin/library | Scenario evidence context, artifact ownership, structured observations, report enrichment and controller aggregation |
-| Application fixtures | Real startup/shutdown, isolated storage/configuration, services, credentials, observation-sink binding and domain actions |
+| Application fixtures | Real startup/shutdown, isolated storage/configuration, services, credentials, application-defined observation binding and domain actions |
 | Application scenarios | Behavioral contract, real actions and stable expected outcomes |
 | Application CI/policy | Canonical test locations, admitted cases, profile membership, protected expectations and human authorization |
 | Skills | Behavioral planning, authoring, diagnosis and review judgment |
@@ -61,7 +61,7 @@ Do not require BaseScenario, ScenarioApp, a validation/main.py entry point or a 
 Settle a small public API before implementation. The following names describe the intended shape and remain provisional.
 
 - A function-scoped scenario_run fixture supplies a unique root, an artifacts directory, an observation recorder/query interface, explicit secret registration and small helpers for retaining structured outputs.
-- The consuming project's app fixture depends on scenario_run, starts the actual application with run-owned state and connects its actual observation sink. Pytest owns fixture finalization.
+- The consuming project's app fixture depends on scenario_run, starts the actual application with run-owned state and connects any chosen application observations to the recorder. Pytest owns fixture finalization.
 - Application tests request app and use ordinary assertions. They can access scenario_run directly when necessary; common cases should not repeat context lookup or reporting boilerplate.
 - Published event observations have a minimal name/data envelope, optional metadata and an explicit mapping seam for application log formats. Matching uses recursive selected fields, checkpoints and correlation identifiers. Extra diagnostic fields do not invalidate a behavioral expectation.
 - Inputs and expected observations are separate. A test emitting its own expected application event is not proof that the application behaved correctly.
