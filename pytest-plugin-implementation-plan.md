@@ -25,6 +25,8 @@ The blind AssistantMD trial produced a useful real-app scenario but exposed a ju
 
 Scenarios remain ordinary refactorable code. The core and review drafts now guide authors toward a readable state/action/outcome sequence, with setup, evidence serialization, provenance, repetitive diagnostics and routine lifecycle plumbing owned by fixtures or focused helpers. Significant inputs and expectations stay visible; lifecycle actions remain in the journey when lifecycle behavior is the subject. This guidance addresses maintainability without introducing a custom DSL or treating scenario source as immutable.
 
+A final fresh Sol trial used the readability revision at 7c9ec19 with an independent directory-cleanup requirements document. Its final run retained 4 passing cases and 2 genuine failures for specified root representations. All original acceptance assertions survived documented initialization fixes. Real outputs, all-file-type preservation, semantic observations and separate behavior sequences were stronger than the source-only trials. Remaining presentation polish includes moving the module-level support/provenance helpers out of the scenario file. Evidence: AssistantMD/validation/runs/skill_evaluations/directory_cleanup_requirements_20261028_6qjyjja0/evaluator-assessment.md. This demonstrates appropriate failure preservation in that exercise, not a universal guarantee; adding requirements and changing skill wording are separate experimental changes.
+
 This edits the review draft only. Skill installation/publication, protected product documentation and framework/application behavior remain outside this revision. No full-suite run is needed for the prose change.
 
 ## Purpose
