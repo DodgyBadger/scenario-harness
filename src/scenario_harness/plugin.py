@@ -146,12 +146,11 @@ def pytest_testnodedown(node: Any, error: Any) -> None:
     )
 
 
-def pytest_collection_modifyitems(
-    session: pytest.Session, items: list[pytest.Item]
-) -> None:
+def pytest_collection_finish(session: pytest.Session) -> None:
     if _STATE not in session.config.stash:
         return
-    for item in items:
+    # Selection hooks have finished; deselected cases are not incomplete runs.
+    for item in session.items:
         session.config.stash[_STATE].evidence(item.nodeid)
 
 

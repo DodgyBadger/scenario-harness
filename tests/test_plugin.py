@@ -331,3 +331,31 @@ def test_long_parameter_ids_keep_artifact_paths_bounded(tmp_path):
     assert len(first.root.name) <= 91
     assert first.root != second.root
     assert first.artifacts.is_dir()
+
+
+@pytest.mark.parametrize("workers", [0, 1])
+@pytest.mark.parametrize(
+    "selection",
+    [("-k", "first"), ("-m", "scenario"), ("--deselect", "test_app.py::test_second")],
+)
+def test_deselected_cases_are_not_reported(tmp_path, workers, selection):
+    import xml.etree.ElementTree as ET
+
+    result, report = execute(
+        tmp_path,
+        """import pytest
+@pytest.mark.scenario
+def test_first(): pass
+def test_second(): pass
+""",
+        "--scenario-mode",
+        "protected" if workers else "inprocess",
+        "-n",
+        str(workers),
+        *selection,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert [case["nodeid"] for case in report["tests"]] == ["test_app.py::test_first"]
+    assert report["tests"][0]["status"] == "passed"
+    junit = ET.parse(tmp_path / "junit.xml")
+    assert len(junit.findall(".//testcase")) == len(report["tests"]) == 1
