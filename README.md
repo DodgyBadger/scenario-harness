@@ -33,6 +33,12 @@ External services and environmental dependencies may be simulated when live call
 
 Document each substitution beside its fixture or test: what is replaced, why, what remains real and what is unproven. Do not substitute an in-app service merely because it makes a failure easier to avoid. Simulated external responses prove application behavior under those inputs, not that the live provider works. Keep a small optional live compatibility check where that distinction matters.
 
+## Browser scenarios
+
+Use Playwright's maintained pytest integration in the consuming application; scenario-harness does not require Playwright or manage browser automation. Shared application fixtures should serve the actual app on a loopback HTTP port, own isolated state and define browser/network policy. Scenarios consume those fixtures and assert user journeys through the real UI/backend. Keep browser configuration and loop scopes separate from non-browser profiles where their lifecycle requirements differ.
+
+Save screenshots and trace ZIPs directly under `scenario_run.artifacts`, and retain console/page/request diagnostics with `scenario_run.save_json`. Browser diagnostics must be exported before closing their context; attempt trace export even if screenshot capture fails. These binary files are retained as produced and are not scrubbed by the plugin's JSON/text redactor, so use synthetic test data and credentials. Keep browser context/listener cleanup evidence separate from the fact that pytest finalizers returned. Existing worker deadlines do not establish cleanup of deliberately detached browser processes after forced worker death.
+
 ## Agent skills
 
 Skills are separate from Python package installation. Copy the selected directories from [skills](skills) into your agent's configured skills directory explicitly; installing the package does not modify agent configuration.

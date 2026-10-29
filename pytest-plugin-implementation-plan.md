@@ -208,3 +208,7 @@ AssistantMD's separate staging environment installed this wheel and verified tha
 ### Controller deadlines and external-dependency policy — 2026-10-29
 
 Implemented a controller-owned per-item deadline, independent of the worker GIL, with actual native-block tests for setup, call and teardown. All 37 generic checks pass. Detached sessions remain outside process ownership; killed-worker application teardown remains unconfirmed. The skills and README now allow documented external-service/environment doubles while requiring real in-app services, outputs and observations. Skills are maintained under `skills/` and are not installed into agent configuration automatically.
+
+### Browser composition pilot — 2026-10-29
+
+AssistantMD verified two real full-stack UI journeys using the official async Playwright pytest integration with app-owned fixtures and a real local HTTP listener. An intentional assertion failure followed by a passing fresh-context case retains screenshots, trace ZIPs and app diagnostics and confirms normal process cleanup. No generic runtime/API change or mandatory Playwright dependency was needed. The README and adoption skill now describe the reusable composition and evidence boundaries. App-specific process/network policy and migration remain in the consuming repo; detached-process cleanup after forced worker death remains unsupported.
