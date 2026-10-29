@@ -39,9 +39,9 @@ class ScenarioRun:
             return value
         if isinstance(value, dict):
             return {self.redact(str(k)): self.redact(v) for k, v in value.items()}
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             return [self.redact(v) for v in value]
-        if value is None or isinstance(value, (bool, int, float)):
+        if value is None or isinstance(value, bool | int | float):
             return value
         return self.redact(str(value))
 
