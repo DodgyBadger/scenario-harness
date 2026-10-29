@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 from test_plugin import execute
 
 
@@ -75,11 +74,10 @@ def test_next_healthy(scenario_run):
         )
         assert time.monotonic() - started < 25, result.stdout + result.stderr
         assert result.returncode == 1
-        assert report["capabilities"]["hard_hang_timeout"] is False
+        assert report["capabilities"]["hard_hang_timeout"] is True
         assert report["capabilities"]["worker_timeout_watchdog"] is True
         assert (
-            "GIL-held native code unsupported"
-            in report["capabilities"]["timeout_mechanism"]
+            "controller process deadline" in report["capabilities"]["timeout_mechanism"]
         )
         assert (
             "detached sessions unsupported"
@@ -132,3 +130,55 @@ def test_protected_watchdog_rejects_disabled_or_unbounded_deadline(tmp_path, val
     )
     assert result.returncode == 4
     assert "finite and positive" in result.stderr
+
+
+@pytest.mark.parametrize("phase", ["setup", "call", "teardown"])
+def test_controller_deadline_kills_native_gil_hang(tmp_path, phase):
+    # PyDLL deliberately retains the GIL while libc sleeps. This is a real
+    # native block, not a mocked timer or simulated worker-death report.
+    source = f"""
+import ctypes
+import pytest
+
+def native_hang():
+    ctypes.PyDLL(None).sleep(60)
+
+@pytest.fixture
+def owned(scenario_run):
+    scenario_run.save_json('before-hang.json', {{'phase': {phase!r}}})
+    if {phase!r} == 'setup': native_hang()
+    yield
+    if {phase!r} == 'teardown': native_hang()
+
+def test_native_hang(owned):
+    if {phase!r} == 'call': native_hang()
+
+def test_replacement(scenario_run):
+    scenario_run.save_json('replacement.json', {{'ok': True}})
+"""
+    result, report = execute(
+        tmp_path,
+        source,
+        "--scenario-mode",
+        "protected",
+        "-n",
+        "1",
+        "--scenario-timeout",
+        "2",
+        "--max-worker-restart",
+        "1",
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    expired = [
+        e
+        for e in report["worker_events"]
+        if e["event"] == "controller_deadline_expired"
+    ]
+    assert len(expired) == 1
+    assert expired[0]["nodeid"].endswith("::test_native_hang")
+    tests = {t["nodeid"].split("::")[-1]: t for t in report["tests"]}
+    assert tests["test_native_hang"]["worker_crashed"]
+    assert tests["test_native_hang"]["cleanup_status"] == "unconfirmed"
+    assert tests["test_replacement"]["status"] == "passed"
+    assert tests["test_replacement"]["cleanup_status"] == "completed"
+    assert report["capabilities"]["hard_hang_timeout"] is True

@@ -7,8 +7,11 @@ import json
 import os
 import platform
 import re
-import tempfile
+import signal
 import sys
+import tempfile
+import threading
+import time
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from importlib.metadata import version
@@ -36,6 +39,52 @@ class RunEvidence:
     worker_events: list[dict[str, Any]] = field(default_factory=list)
     collection_errors: list[dict[str, Any]] = field(default_factory=list)
     worker_ownership: dict[str, dict[str, Any]] = field(default_factory=dict)
+    deadline_stop: threading.Event = field(default_factory=threading.Event)
+    deadline_thread: threading.Thread | None = None
+
+    def watch_deadlines(self, seconds: float) -> None:
+        """The controller owns this clock; a worker holding its GIL cannot stop it."""
+        expired: set[str] = set()
+        while not self.deadline_stop.wait(0.05):
+            for worker, identity in list(self.worker_ownership.items()):
+                if worker in expired:
+                    continue
+                try:
+                    lease = json.loads(
+                        (
+                            self.root / "workers" / worker / "active-item.json"
+                        ).read_text()
+                    )
+                    if (
+                        not lease["active"]
+                        or time.monotonic() - lease["started"] < seconds
+                    ):
+                        continue
+                    current = process_identity(identity["pid"])
+                    if current["start_time"] != identity["start_time"]:
+                        continue
+                    expired.add(worker)
+                    self.worker_event(
+                        "controller_deadline_expired",
+                        worker,
+                        nodeid=lease["nodeid"],
+                        seconds=seconds,
+                    )
+                    # Kill only the verified worker. The normal xdist node-down
+                    # hook then cleans its owned session before replacement.
+                    os.kill(identity["pid"], signal.SIGKILL)
+                except (FileNotFoundError, ProcessLookupError):
+                    continue
+                except (OSError, ValueError, KeyError) as error:
+                    expired.add(worker)
+                    self.worker_event(
+                        "controller_deadline_error", worker, error=type(error).__name__
+                    )
+
+    def stop_deadlines(self) -> None:
+        self.deadline_stop.set()
+        if self.deadline_thread is not None:
+            self.deadline_thread.join(timeout=2)
 
     def worker_event(self, event: str, worker: str, **details: Any) -> None:
         record = {"event": event, "worker": worker, **details}
@@ -149,7 +198,16 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     if root.exists() and any(root.iterdir()):
         raise pytest.UsageError("--scenario-root must be empty")
     root.mkdir(parents=True, exist_ok=True)
-    session.config.stash[_STATE] = RunEvidence(root)
+    state = RunEvidence(root)
+    session.config.stash[_STATE] = state
+    if session.config._scenario_mode == "protected":
+        state.deadline_thread = threading.Thread(
+            target=state.watch_deadlines,
+            args=(session.config.getoption("scenario_timeout"),),
+            name="scenario-controller-deadlines",
+            daemon=True,
+        )
+        state.deadline_thread.start()
 
 
 @pytest.hookimpl(optionalhook=True)
@@ -197,7 +255,7 @@ def pytest_testnodedown(node: Any, error: Any) -> None:
         "worker_down", node.gateway.id, error=str(error) if error else None
     )
     if node.config._scenario_mode == "protected":
-        identity = state.worker_ownership.get(node.gateway.id)
+        identity = state.worker_ownership.pop(node.gateway.id, None)
         cleanup = (
             cleanup_worker_session(identity)
             if identity
@@ -206,6 +264,36 @@ def pytest_testnodedown(node: Any, error: Any) -> None:
         state.worker_event("worker_process_cleanup", node.gateway.id, **cleanup)
         if cleanup["status"] != "completed":
             node.config._scenario_cleanup_unconfirmed = True
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
+    state = item.config.stash.get(_STATE, None)
+    if (
+        state is None
+        or not state.is_worker
+        or item.config._scenario_mode != "protected"
+    ):
+        yield
+        return
+    lease = {"nodeid": item.nodeid, "started": time.monotonic(), "active": True}
+
+    def save() -> None:
+        temporary = state.root / "active-item.tmp"
+        temporary.write_text(json.dumps(lease))
+        temporary.replace(state.root / "active-item.json")
+
+    save()
+    try:
+        yield
+    finally:
+        lease["active"] = False
+        save()
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    if _STATE in config.stash:
+        config.stash[_STATE].stop_deadlines()
 
 
 @pytest.hookimpl(trylast=True)
@@ -380,6 +468,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         exitstatus = session.exitstatus
     if state.is_worker:
         return
+    state.stop_deadlines()
+    if exitstatus == pytest.ExitCode.OK and any(
+        e["event"] == "controller_deadline_error" for e in state.worker_events
+    ):
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+        exitstatus = session.exitstatus
     tests = []
     lines = ["# Scenario evidence", "", f"Exit status: {int(exitstatus)}", ""]
     for nodeid, evidence in state.items.items():
@@ -474,9 +568,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "mode": session.config._scenario_mode,
         "capabilities": {
             "worker_crash_detection": session.config._scenario_mode == "protected",
-            "hard_hang_timeout": False,
+            "hard_hang_timeout": session.config._scenario_mode == "protected",
             "worker_timeout_watchdog": session.config._scenario_mode == "protected",
-            "timeout_mechanism": "pytest-timeout thread watchdog; GIL-held native code unsupported",
+            "timeout_mechanism": "controller process deadline plus pytest-timeout thread watchdog",
             "timeout_seconds": (
                 session.config.getoption("scenario_timeout")
                 if session.config._scenario_mode == "protected"
