@@ -1,6 +1,6 @@
 # Proposed skills and adoption text
 
-Approval pending. This file is a review draft only. The five SKILL.md files and public adoption documentation below have not been installed or published. Proposed skill destinations are `skills/<name>/SKILL.md`. Each skill is intentionally self-contained; API details belong in the package's authoritative public reference.
+The maintained skills are under `skills/<name>/SKILL.md`; they are not installed into an agent home automatically. This file retains the original adoption design and aligned skill text for review. Each skill is intentionally self-contained; API details belong in the package's authoritative public reference.
 
 ## Proposed skill: skills/plan-behavioral-change/SKILL.md
 
@@ -12,7 +12,7 @@ description: Plan an application behavior change around executable acceptance co
 
 Inspect repository instructions, existing scenarios and coverage before choosing a new scenario, an extension or a narrower check. Describe the requested behavior through production entry points, permitted inputs, state transitions and important negative cases. Record unresolved specification questions before implementing assumptions.
 
-Choose the smallest observations that distinguish success from failure: actual responses, persisted state and semantic application events with selected required fields. Identify real startup, isolated storage, dependencies, service availability and timing costs. Missing services must remain an explicit coverage limit; simulated application results are not full-stack evidence.
+Choose the smallest observations that distinguish success from failure: actual responses, persisted state and semantic application events with selected required fields. Identify real startup, isolated storage, dependencies, service availability and timing costs. Keep in-app services real. Plan narrow external-service doubles when live dependencies are impractical, slow or require secrets; record the boundary and the resulting coverage limit. Simulated application outcomes are not full-stack evidence.
 
 Write or update the project's implementation plan around an executable acceptance condition. Include the selected checks, expected meaningful red result, implementation steps, green rerun, evidence location, known limits and required project approvals. Follow the project's plan location and format.
 
@@ -31,13 +31,13 @@ description: Adopt the scenario-harness pytest plugin in a consuming application
 
 Read the installed package's public API reference and the consuming repository's test policy. Keep domain actions, application lifecycle and admission policy in the consumer; do not import another application's validation framework or recreate a separate runner.
 
-Install scenario-harness in the application's isolated test environment. It includes pytest and pytest-xdist. Use the scenario_run fixture for run-owned state and artifacts. An ordinary app fixture depends on scenario_run, starts the actual application, connects any application-defined observations to the recorder and finalizes the application through pytest. Keep setup failures visible and ensure partial startup can release acquired resources.
+Install scenario-harness in the application's isolated test environment. It includes pytest and pytest-xdist. Use the scenario_run fixture for run-owned state and artifacts. An ordinary app fixture depends on scenario_run, starts the actual application, connects any application-defined observations to the recorder and finalizes the application through pytest. Keep application services real; place justified external-service doubles at explicit external boundaries and document their limits beside the fixture. Keep setup failures visible and ensure partial startup can release acquired resources.
 
 The application developer chooses how to expose internal state; structured logs are one option. When using the plugin's observation recorder, adapt application-produced observations to its name/data/optional-metadata envelope. Scenarios must not manufacture the observations they expect. Assert selected semantic fields, using checkpoints and correlation identifiers to avoid matching unrelated operations. Register known secrets before emitting them to plugin-owned evidence; raw application files need their own policy.
 
 Start adoption with a small real outcome plus an internal semantic observation. Configure protected mode with explicit local workers, initially `--scenario-mode protected -n 1 --max-worker-restart=1`. Use `--scenario-mode inprocess` for deliberate debugging and recognize its reduced crash protection. Installing the plugin alone must not activate unrelated tests.
 
-Set an explicit plugin-owned artifact root, retain reports according to project policy and make CI preserve failure artifacts. Verify the installed distribution from outside its source tree. Prove additional worker safety before increasing concurrency. Do not claim remote-worker, descendant cleanup or hard-hang guarantees without evidence. Python package installation does not install agent skills.
+Set an explicit plugin-owned artifact root, retain reports according to project policy and make CI preserve failure artifacts. Verify the installed distribution from outside its source tree. Prove additional worker safety before increasing concurrency. Protected mode on Linux enforces whole-item deadlines from the controller and cleans verified inherited worker sessions; deliberately detached sessions and remote workers remain unsupported. A killed worker still has unconfirmed application teardown. Python package installation does not install agent skills.
 ```
 
 ## Proposed skill: skills/test-application-behavior/SKILL.md
@@ -56,7 +56,9 @@ Keep those claims stable when implementation interfaces, collaborators or strate
 
 Start a real, isolated application instance. Observe actual responses, files, persisted state and other application outputs. Where external output cannot establish an important decision, use meaningful internal observations exposed through a mechanism chosen by the application developer, such as structured logs. Internal observations may validate messages, state transitions and other behavior that matters to the scenario. Choose observation points that keep tests maintainable as implementation details change, and let the real application produce the evidence (e.g. via logs) rather than mocking its collaborators.
 
-Fixtures supply controlled inputs and real dependencies. They must not manufacture the result under test, publish its expected events or patch a strategy into producing the expected outcome. Declare external-service requirements and coverage limits honestly; a substituted provider result cannot establish that provider's behavior.
+Keep in-app services real: do not mock application collaborators, strategies, persistence, internal messages or evidence producers to obtain the expected result. Fixtures must not manufacture application outcomes or publish the events being asserted.
+
+External services and environmental dependencies may be mocked when live calls are impractical, slow, variable, costly or require secrets. Prefer a controlled local server where it adds useful protocol evidence; use a narrow external-boundary double when that is more practical. DNS answers, provider HTTP responses and external tool responses are examples. Keep application admission, orchestration, processing and writes real. Document beside each substitution what is replaced, why, what remains real and what the scenario does not prove. Simulated provider responses can establish application behavior given those responses; they cannot establish the live provider's correctness or deployment compatibility. Do not introduce a test-only production security bypass when controlling external inputs will suffice.
 
 Derive expected correctness from requirements, agreed invariants, documented contracts and reviewed decisions. Implementation inspection helps find entry points and explain observations; existing implementation is evidence of current behavior, not the sole authority for what is correct. When only current behavior is known, label the result as characterization and identify unresolved expectations.
 
@@ -93,7 +95,7 @@ name: review-behavioral-scenarios
 description: Review scenario changes for meaningful behavioral coverage, stable semantic assertions and trustworthy execution evidence.
 ---
 
-Compare the requested contract, implementation and scenario diff. Determine whether real production entry points produce the asserted outputs, persisted state or observations. Trace internal observations to the application's chosen instrumentation; test-emitted expected records are not proof. Distinguish controlled input fixtures from substituted application outcomes.
+Compare the requested contract, implementation and scenario diff. Determine whether real production entry points produce the asserted outputs, persisted state or observations. Trace internal observations to the application's chosen instrumentation; test-emitted expected records are not proof. Distinguish controlled external inputs from substituted application outcomes. External-service doubles are permitted when justified by practicality, speed, determinism or secrets; in-app service mocks are not. Check that each substitution documents its boundary, reason and limits in code, and leaves the application producing its own outputs and observations.
 
 Read the scenario as a behavior sequence: can the reader follow the relevant state, actions and expected outcomes without working through setup or diagnostic plumbing? Suggest refactoring distracting mechanics into fixtures or helpers while keeping meaningful inputs and expectations visible.
 
@@ -114,7 +116,7 @@ description: Diagnose pytest scenario failures using phase reports, semantic obs
 
 Read pytest's verdict and the plugin's JSON/Markdown evidence together. Identify the earliest relevant setup, call or teardown failure, selected node, worker, exception and artifact directory. Preserve concurrent assertion and cleanup failures rather than treating one as the explanation for both.
 
-Reproduce the smallest relevant case with isolated state and the same inputs. Keep protected mode when investigating worker behavior; use explicit in-process debugging only when needed and record the changed protection. Diagnose infrastructure failures separately from application behavior failures. Never weaken the expected behavior or silently substitute simulated application results to obtain green output.
+Reproduce the smallest relevant case with isolated state and the same inputs. Keep protected mode when investigating worker behavior; use explicit in-process debugging only when needed and record the changed protection. Diagnose infrastructure failures separately from application behavior failures. Never weaken the expected behavior or substitute simulated in-app results to obtain green output. An explicitly documented external-service double may isolate environmental faults, but record the changed boundary and do not present it as live-service verification.
 
 Use checkpoints, correlation fields and application outputs to locate the last established state transition. Redact registered values in shared excerpts; raw application files may require separate handling. A process death has no Python exception object: distinguish genuine fatal diagnostics from missing evidence and mark cleanup unconfirmed unless established independently.
 
@@ -137,4 +139,4 @@ For an installed-wheel check, copy `examples/notes_app` outside the repository, 
 
 ## Validation still required before publication
 
-Extract approved skills into their final destinations and run the skill creator's quick_validate.py against each package. Exercise realistic planning, authoring, review and diagnosis tasks in isolated consumer projects when authorized; metadata validation alone does not establish skill quality. In particular, verify that planning produces a meaningful executable red acceptance condition, review rejects a weakened oracle and diagnosis separates intentional failure from successful recovery. Public skill installation and publication remain pending explicit approval of this draft.
+Run the skill creator's quick_validate.py against the maintained skills under `skills/`. Exercise realistic planning, authoring, review and diagnosis tasks in isolated consumer projects when authorized; metadata validation alone does not establish skill quality. In particular, verify that planning produces a meaningful executable red acceptance condition, review rejects a weakened oracle and diagnosis separates intentional failure from successful recovery. Installing skills into an agent environment remains an explicit user action.
