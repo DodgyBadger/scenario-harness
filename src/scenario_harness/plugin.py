@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import tempfile
+import sys
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from importlib.metadata import version
@@ -17,6 +18,7 @@ from typing import Any
 import pytest
 
 from .context import ScenarioRun
+from .processes import claim_worker_session, cleanup_worker_session, process_identity
 
 _STATE: pytest.StashKey[RunEvidence] = pytest.StashKey()
 
@@ -33,6 +35,7 @@ class RunEvidence:
     external_paths: dict[str, str] = field(default_factory=dict)
     worker_events: list[dict[str, Any]] = field(default_factory=list)
     collection_errors: list[dict[str, Any]] = field(default_factory=list)
+    worker_ownership: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def worker_event(self, event: str, worker: str, **details: Any) -> None:
         record = {"event": event, "worker": worker, **details}
@@ -54,12 +57,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("scenario-harness")
     group.addoption("--scenario-mode", choices=["protected", "inprocess"], default=None)
     group.addoption("--scenario-root", default=None)
+    group.addoption(
+        "--scenario-timeout",
+        type=float,
+        default=300.0,
+        help="Protected per-item watchdog including setup and teardown (seconds)",
+    )
     parser.addini(
         "scenario_mode", "protected or inprocess; empty disables evidence", default=""
     )
     parser.addini("scenario_root", "Empty directory for scenario evidence", default="")
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "scenario: application behavioral scenario")
     mode = config.getoption("scenario_mode") or config.getini("scenario_mode")
@@ -68,6 +78,21 @@ def pytest_configure(config: pytest.Config) -> None:
         return
     if mode not in {"protected", "inprocess"}:
         raise pytest.UsageError("scenario_mode must be protected or inprocess")
+    if mode == "protected":
+        config.option.timeout_disable_debugger_detection = True
+        import math
+
+        seconds = config.getoption("scenario_timeout")
+        if not math.isfinite(seconds) or seconds <= 0:
+            raise pytest.UsageError(
+                "protected --scenario-timeout must be finite and positive"
+            )
+        if not sys.platform.startswith("linux") or not Path("/proc/self/stat").exists():
+            raise pytest.UsageError(
+                "protected process ownership requires Linux /proc; use inprocess for unsupported platforms"
+            )
+        if not config.pluginmanager.hasplugin("timeout"):
+            raise pytest.UsageError("protected mode requires pytest-timeout")
     workers = config.getoption("numprocesses", default=0)
     if (
         mode == "protected"
@@ -104,6 +129,14 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         )
         root.mkdir(parents=True)
         session.config.stash[_STATE] = RunEvidence(root, is_worker=True)
+        if session.config._scenario_mode == "protected":
+            try:
+                identity = claim_worker_session()
+                (root / "process-ownership.json").write_text(json.dumps(identity))
+            except Exception as error:
+                raise pytest.UsageError(
+                    "Protected worker process ownership could not be established"
+                ) from error
         return
     configured = session.config.getoption("scenario_root") or session.config.getini(
         "scenario_root"
@@ -138,12 +171,59 @@ def pytest_xdist_node_collection_finished(node: Any, ids: list[str]) -> None:
 
 
 @pytest.hookimpl(optionalhook=True)
+def pytest_testnodeready(node: Any) -> None:
+    if _STATE not in node.config.stash or node.config._scenario_mode != "protected":
+        return
+    state = node.config.stash[_STATE]
+    identity = json.loads(
+        (
+            state.root / "workers" / node.gateway.id / "process-ownership.json"
+        ).read_text()
+    )
+    if process_identity(identity["pid"])["start_time"] != identity["start_time"]:
+        raise pytest.UsageError(
+            "Worker process ownership identity changed before readiness"
+        )
+    state.worker_ownership[node.gateway.id] = identity
+    state.worker_event("worker_process_owned", node.gateway.id, **identity)
+
+
+@pytest.hookimpl(optionalhook=True)
 def pytest_testnodedown(node: Any, error: Any) -> None:
     if _STATE not in node.config.stash:
         return
-    node.config.stash[_STATE].worker_event(
+    state = node.config.stash[_STATE]
+    state.worker_event(
         "worker_down", node.gateway.id, error=str(error) if error else None
     )
+    if node.config._scenario_mode == "protected":
+        identity = state.worker_ownership.get(node.gateway.id)
+        cleanup = (
+            cleanup_worker_session(identity)
+            if identity
+            else {"status": "unconfirmed", "reason": "ownership_not_established"}
+        )
+        state.worker_event("worker_process_cleanup", node.gateway.id, **cleanup)
+        if cleanup["status"] != "completed":
+            node.config._scenario_cleanup_unconfirmed = True
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    if config._scenario_mode == "protected":
+        for item in items:
+            # Closest marker wins. Neither timeout(0), signal methods nor
+            # func_only markers may disable the protected whole-item watchdog.
+            item.add_marker(
+                pytest.mark.timeout(
+                    config.getoption("scenario_timeout"),
+                    method="thread",
+                    func_only=False,
+                ),
+                append=False,
+            )
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
@@ -233,6 +313,9 @@ class ReportCollector:
     @pytest.hookimpl(optionalhook=True)
     def pytest_handlecrashitem(self, crashitem: str, report: pytest.TestReport) -> None:
         report.user_properties.append(("scenario_worker_crash", True))
+        node = getattr(report, "node", None)
+        if node is not None:
+            report.user_properties.append(("scenario_worker_id", node.gateway.id))
 
     def pytest_collectreport(self, report: pytest.CollectReport) -> None:
         if report.failed:
@@ -266,9 +349,9 @@ class ReportCollector:
             }
         phase = {
             **phase,
-            "phase": "worker"
-            if properties.get("scenario_worker_crash")
-            else report.when,
+            "phase": (
+                "worker" if properties.get("scenario_worker_crash") else report.when
+            ),
             "outcome": report.outcome,
             "duration": report.duration,
             "traceback": str(report.longrepr) if report.longrepr else None,
@@ -278,6 +361,8 @@ class ReportCollector:
             "wasxfail": getattr(report, "wasxfail", None),
             "worker_crash": bool(properties.get("scenario_worker_crash")),
         }
+        if properties.get("scenario_worker_id"):
+            phase["worker"] = properties["scenario_worker_id"]
         state.reports.setdefault(report.nodeid, []).append(evidence.redact(phase))
         evidence.save("pytest-phases.json", state.reports[report.nodeid])
         evidence.step("pytest_phase", phase=phase["phase"], outcome=phase["outcome"])
@@ -287,6 +372,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if _STATE not in session.config.stash:
         return
     state = session.config.stash[_STATE]
+    if (
+        getattr(session.config, "_scenario_cleanup_unconfirmed", False)
+        and exitstatus == pytest.ExitCode.OK
+    ):
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+        exitstatus = session.exitstatus
     if state.is_worker:
         return
     tests = []
@@ -384,7 +475,15 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "capabilities": {
             "worker_crash_detection": session.config._scenario_mode == "protected",
             "hard_hang_timeout": False,
-            "descendant_process_cleanup": False,
+            "worker_timeout_watchdog": session.config._scenario_mode == "protected",
+            "timeout_mechanism": "pytest-timeout thread watchdog; GIL-held native code unsupported",
+            "timeout_seconds": (
+                session.config.getoption("scenario_timeout")
+                if session.config._scenario_mode == "protected"
+                else None
+            ),
+            "descendant_process_cleanup": session.config._scenario_mode == "protected",
+            "process_cleanup_scope": "verified inherited Linux worker sessions; detached sessions unsupported",
             "remote_workers": False,
         },
         "schema_version": 1,

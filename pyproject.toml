@@ -7,7 +7,7 @@ name = "scenario-harness"
 version = "0.2.0"
 description = "Pytest scenario evidence and structured observations"
 requires-python = ">=3.13"
-dependencies = ["pytest>=9.0.3,<10", "pytest-xdist>=3.8,<4"]
+dependencies = ["pytest>=9.0.3,<10", "pytest-xdist>=3.8,<4", "pytest-timeout>=2.4,<3"]
 
 [project.entry-points.pytest11]
 scenario_harness = "scenario_harness.plugin"
