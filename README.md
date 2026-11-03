@@ -2,6 +2,14 @@
 
 A pytest plugin and agent skills for testing application behavior through real outputs and semantic observations. Pytest owns fixtures, execution and assertions; this package adds inspectable per-scenario evidence and protected worker execution.
 
+## What deserves a test
+
+Tests should protect meaningful behavior: accepted or rejected actions, state changes, persistence, permissions, calculations and functional accessibility. Before adding a test, name the incorrect behavior it would catch and why that matters. If no behavioral consequence can be identified, do not add a test.
+
+Presentation-only changes do not require new tests or a red/green cycle. Do not add assertions or snapshots just to freeze UI wording, headings, punctuation, CSS classes, colors, spacing, layout, decorative markup or documentation/skill prose. Use direct review or visual inspection for those changes. Update or remove existing assertions that only pin incidental presentation rather than preserving them as a behavioral contract.
+
+Assert outcomes through the UI when useful: saving a note should persist it; rejecting an invalid submission should leave state unchanged and expose the error accessibly. Match only the semantics needed to establish that outcome. Visible text can help locate a control without making its exact wording a separate requirement. Exact output assertions belong where the exact value determines correctness, such as a machine-consumed schema or a required exported value; explain the contract they protect. Screenshots and traces can be diagnostic artifacts without becoming snapshot assertions.
+
 ## Install and run
 
 Install the tested package revision in your application's test environment. For sibling development, use `uv pip install -e ../scenario-harness`; CI should install an immutable tested revision. The package includes pytest, pytest-xdist and pytest-timeout. Install application-specific test dependencies separately.

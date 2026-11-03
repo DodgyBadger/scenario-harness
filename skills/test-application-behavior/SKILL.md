@@ -1,6 +1,6 @@
 ---
 name: test-application-behavior
-description: Apply scenario-based testing to real application behavior using observable outcomes and stable behavioral contracts. Use when designing, writing or changing application scenarios, including output and internal-state assertions, while preserving failures that reveal contract discrepancies.
+description: Apply scenario-based testing to real application behavior using observable outcomes and stable behavioral contracts. Use when designing, writing or changing behavioral scenarios; exclude presentation-only and documentation edits.
 ---
 
 ## Testing philosophy
@@ -8,6 +8,10 @@ description: Apply scenario-based testing to real application behavior using obs
 A scenario is an executable claim about what the application must do under specified conditions. Define the inputs, actions, expected outcomes and invariants that make the behavior correct. The aim is trustworthy evidence that those claims hold. A passing result has value only while the scenario still rejects the incorrect behavior it was meant to detect.
 
 Keep those claims stable when implementation interfaces, collaborators or strategies change. Test through an appropriate production entry point and judge the resulting behavior. Assertions about private object layout, collaborator calls or incidental formatting create maintenance work without necessarily protecting the application outcome.
+
+Before adding or extending a test, name the plausible incorrect behavior it would catch and its consequence. If there is no meaningful behavioral consequence, do not add a test. Copy, headings, punctuation, styling, layout, decorative markup and documentation/skill wording alone need direct review or visual inspection, not automated assertions, snapshots or a red/green cycle.
+
+For UI scenarios, assert what the user can do and what the application does in response: state changes, persisted results, rejected operations, permissions and functional accessibility. A label can locate a control without making its exact wording a contract. Assert error semantics and accessible exposure when relevant, rather than exact message prose. Assert exact output only when the value itself determines functional correctness, such as machine-consumed output or a required exported value, and identify that contract. Screenshots and traces may support diagnosis without being snapshot oracles.
 
 Start a real, isolated application instance. Observe actual responses, files, persisted state and other application outputs. Where external output cannot establish an important decision, use meaningful internal observations exposed through a mechanism chosen by the application developer, such as structured logs. Internal observations may validate messages, state transitions and other behavior that matters to the scenario. Choose observation points that keep tests maintainable as implementation details change, and let the real application produce the evidence (e.g. via logs) rather than replacing in-app services with the expected evidence.
 
@@ -20,6 +24,8 @@ Derive expected correctness from requirements, agreed invariants, documented con
 ## Preserve the contract when a test fails
 
 Treat an unexpected failure as evidence to investigate. Keep the original inputs, actions, assertions and observed outputs available while distinguishing application defects, fixture faults, environmental problems and genuine mistakes in the expectation. Conflicting requirements or invariants remain open contract questions until resolved.
+
+An assertion that merely freezes incidental presentation is not a behavioral contract. Update or remove it when presentation changes, retaining any meaningful behavioral coverage. Do not apply contract-preservation or red/green requirements to wording, styling or documentation assertions with no behavioral consequence.
 
 Changing an input, removing a negative case, broadening accepted results, skipping a case or weakening a state assertion can remove the demonstrated failure without fixing its cause. Assess these as changes to what the scenario proves. Do not make them solely to obtain a passing run or because the implementation currently behaves that way.
 
